@@ -10,6 +10,6 @@ window.LM_CONFIG = {
   folderPath: 'Công Việc Lê Mây/Tồn Kho Lê Mây/Dữ liệu tồn kho trên CRM',
   // ['Files.Read']: chỉ chủ thư mục (nhi.dvh1) đọc được, không cần quản trị viên.
   // ['Files.Read.All']: mỗi người dùng email riêng, cần quản trị viên bấm "Grant admin consent" trước.
-  scopes: ['Files.Read'],
+  scopes: ['Files.Read.All'],
   autoSyncMinutes: 10  // khi app đang mở, cứ bao nhiêu phút kiểm tra file mới một lần
 };

@@ -1,5 +1,5 @@
 // Cache khung ứng dụng để mở được khi mạng yếu. Ưu tiên bản mới từ mạng, lỗi thì dùng cache.
-const CACHE = 'tonkho-lemay-v2';
+const CACHE = 'tonkho-lemay-v3';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'config.js', 'onedrive.js', 'logo-data.js', 'manifest.json',
   'vendor/xlsx.full.min.js', 'vendor/msal-browser.min.js',
