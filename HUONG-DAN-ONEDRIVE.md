@@ -7,7 +7,8 @@ Thông tin đăng ký app (đã điền trong `config.js`):
 - App: **Theo Dõi Tồn Kho Lê Mây**
 - Client ID: `267c6b3f-cca2-4294-a7e6-4af216ffcb2a`
 - Tenant ID: `36987871-9c3e-4fee-952c-503d196b2b16`
-- Redirect URI (loại **Single-page application**): `http://localhost:8765/app/`, cộng thêm địa chỉ web khi đưa app lên mạng
+- Redirect URI (loại **Single-page application**): `https://dovanhoangnhi.github.io/tonkho-lemay/` (bản web) và `http://localhost:8765/app/` (chạy thử trên laptop)
+- Địa chỉ app: **https://dovanhoangnhi.github.io/tonkho-lemay/** (mã nguồn ở kho GitHub `dovanhoangnhi/tonkho-lemay`)
 
 ## Cho 3 người mỗi người dùng email công ty riêng
 
