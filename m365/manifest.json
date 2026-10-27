@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "Tồn kho Lê Mây (Microsoft 365)",
+  "short_name": "Tồn kho M365",
+  "description": "Theo dõi tồn kho, đăng nhập bằng tài khoản Microsoft 365 công ty",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#c2457f",
+  "icons": [
+    { "src": "../icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "../icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

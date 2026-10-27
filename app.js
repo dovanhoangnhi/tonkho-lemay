@@ -4,8 +4,11 @@
 
 // 5 nhãn trọng tâm, theo thứ tự hiển thị
 const KEY_BRANDS = ['Hakubaku Mì baby', 'Manna', 'Kẹo Popin', 'Nepia', 'Chuchu baby'];
-const LS_DATA = 'lm_data_v1';
-const LS_SET = 'lm_settings_v1';
+// Bản tài khoản riêng và bản Microsoft 365 (m365/) chung một trang web nên tách khóa lưu trên máy
+const BASE = window.LM_CONFIG?.base || '';
+const LS_PREFIX = window.LM_CONFIG?.storagePrefix || '';
+const LS_DATA = LS_PREFIX + 'lm_data_v1';
+const LS_SET = LS_PREFIX + 'lm_settings_v1';
 const DEFAULT_SETTINGS = {
   threshold: 100,   // từ ngưỡng này trở lên ghi "Còn hàng"
   pct: 50,          // lô còn dưới % hạn dùng này thì đưa sang Hàng clear
@@ -180,9 +183,9 @@ async function syncRemote(manual = false) {
       Nguon.logout();
       sync.error = 'Tài khoản đã bị xóa hoặc đổi mật khẩu. Hãy đăng nhập lại.';
     } else {
-      sync.error = err.status === 404 ? 'Chưa có dữ liệu tồn kho trên web. Kiểm tra laptop đồng bộ đã bật chưa.'
+      sync.error = Nguon.describeError?.(err) || (err.status === 404 ? 'Chưa có dữ liệu tồn kho trên web. Kiểm tra laptop đồng bộ đã bật chưa.'
         : !navigator.onLine || err instanceof TypeError ? 'Mất kết nối mạng, đang dùng dữ liệu đã lưu trên máy.'
-        : 'Không lấy được dữ liệu (' + err.message + '). Đang dùng dữ liệu đã lưu.';
+        : 'Không lấy được dữ liệu (' + err.message + '). Đang dùng dữ liệu đã lưu.');
     }
   } finally {
     sync.running = false; sync.lastCheck = Date.now(); render();
@@ -191,7 +194,13 @@ async function syncRemote(manual = false) {
 
 async function startRemote() {
   sync.state = 'need-login';
-  if (await Nguon.init()) await syncRemote();
+  try {
+    if (await Nguon.init()) await syncRemote();
+  } catch (err) {
+    console.error(err);
+    sync.state = 'error';
+    sync.error = Nguon.describeError?.(err) || 'Không đăng nhập được: ' + (err.errorMessage || err.message);
+  }
   render();
   setInterval(() => { if (document.visibilityState === 'visible') syncRemote(); }, Nguon.autoSyncMinutes * 60e3);
   // Mở lại app (từ nền) thì kiểm tra dữ liệu mới nếu đã quá 1 phút
@@ -307,7 +316,7 @@ function render() {
   banner.classList.toggle('error', sync.state === 'error');
   if (sync.state === 'error') banner.textContent = sync.error;
   else if (stale) banner.textContent = data.source === 'web'
-    ? `Dữ liệu mới nhất là của ngày ${fmtDate(toISO(new Date(data.updatedAt)))}. Kiểm tra file CRM hôm nay đã bỏ vào OneDrive và laptop đồng bộ đang bật.`
+    ? `Dữ liệu mới nhất là của ngày ${fmtDate(toISO(new Date(data.updatedAt)))}. Kiểm tra file CRM hôm nay đã bỏ vào OneDrive${Nguon.redirectLogin ? '' : ' và laptop đồng bộ đang bật'}.`
     : `Dữ liệu đang là của ngày ${fmtDate(toISO(new Date(data.updatedAt)))}. Hãy tải file CRM mới nhất trước khi gửi khách.`;
   banner.hidden = !(sync.state === 'error' || stale);
 
@@ -319,7 +328,7 @@ function render() {
   const needLogin = !Nguon.account && data?.source !== 'upload';
   if ((!data || needLogin) && ui.tab !== 'settings') {
     main.innerHTML = `<div class="empty">
-      <img src="icons/logo-wide.png" alt="Lê Mây Co., Ltd">
+      <img src="${BASE}icons/logo-wide.png" alt="Lê Mây Co., Ltd">
       ${sync.state === 'syncing' ? '<h2>Đang lấy dữ liệu mới nhất...</h2>'
         : needLogin ? `<h2>Đăng nhập để xem tồn kho</h2>
           <p>Dùng tên đăng nhập và mật khẩu được cấp cho bạn.</p>
@@ -513,7 +522,8 @@ document.addEventListener('click', e => {
     if (!confirm(`Xóa nhóm "${ui.activeSet}"?`)) return;
     delete settings.sets[ui.activeSet]; ui.activeSet = ''; saveSettings(); render();
   } else if (a === 'login') {
-    openLogin();
+    if (Nguon.redirectLogin) Nguon.login().catch(err => toast('Không mở được trang đăng nhập: ' + err.message));
+    else openLogin();
   } else if (a === 'logout') {
     if (!confirm('Đăng xuất khỏi máy này? Dữ liệu tồn kho đã tải về cũng sẽ bị xóa khỏi máy.')) return;
     Nguon.logout();
@@ -666,7 +676,7 @@ async function drawPage(page, idx, total, opts) {
 
   // Đầu trang
   if (idx === 0) {
-    const logo = await loadImage(window.LOGO_WIDE || 'icons/logo-wide.png');
+    const logo = await loadImage(window.LOGO_WIDE || BASE + 'icons/logo-wide.png');
     const lh = 190, lw = lh * logo.width / logo.height;
     ctx.drawImage(logo, PAD - 6, 26, lw, lh);
     ctx.textAlign = 'right';
@@ -681,7 +691,7 @@ async function drawPage(page, idx, total, opts) {
     }
     ctx.fillStyle = IMG.pink; ctx.fillRect(PAD, 228, W - 2 * PAD, 3);
   } else {
-    const lotus = await loadImage(window.LOGO_LOTUS || 'icons/lotus.png');
+    const lotus = await loadImage(window.LOGO_LOTUS || BASE + 'icons/lotus.png');
     ctx.drawImage(lotus, PAD, 22, 105, 70);
     ctx.textAlign = 'left'; ctx.fillStyle = IMG.pink; ctx.font = `bold 34px ${IMG.FONT}`;
     ctx.fillText('BẢNG TỒN KHO', PAD + 120, 46);
@@ -796,7 +806,7 @@ $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') $('#mo
 /* ================= Khởi động ================= */
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  navigator.serviceWorker.register('sw.js').catch(() => { });
+  navigator.serviceWorker.register(BASE + 'sw.js').catch(() => { });
 }
 render();
 startRemote();

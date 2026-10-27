@@ -1,8 +1,9 @@
 // Cache khung ứng dụng để mở được khi mạng yếu. Ưu tiên bản mới từ mạng, lỗi thì dùng cache.
-const CACHE = 'tonkho-lemay-v5';
+const CACHE = 'tonkho-lemay-v6';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'config.js', 'nguon-du-lieu.js', 'logo-data.js', 'manifest.json',
-  'vendor/xlsx.full.min.js',
+  'nguon-m365.js', 'm365/', 'm365/index.html', 'm365/config.js', 'm365/manifest.json',
+  'vendor/xlsx.full.min.js', 'vendor/msal-browser.min.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/lotus.png', 'icons/logo-wide.png'
 ];
 
