@@ -12,7 +12,7 @@ Thông tin đăng ký app (đã điền trong `config.js`):
 
 ## Cho 3 người mỗi người dùng email công ty riêng
 
-Đã bật từ 27/10/2026 (quản trị viên đã phê duyệt **Files.Read.All**, `config.js` dùng `scopes: ['Files.Read.All']`). Muốn thêm người mới thì chỉ cần làm bước 2 cho người đó. Các bước đã làm:
+Hiện chỉ tài khoản **nhi.dvh1@lemay.com.vn** (chủ thư mục) đọc được. Lần phê duyệt ngày 27/10/2026 chỉ áp cho **User.Read**, vì app chưa được thêm quyền Files.Read.All. Để thêm người:
 
 ### 1. Quản trị viên Microsoft 365 phê duyệt quyền (1 lần, khoảng 1 phút)
 

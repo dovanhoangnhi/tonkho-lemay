@@ -1,5 +1,5 @@
 // Cache khung ứng dụng để mở được khi mạng yếu. Ưu tiên bản mới từ mạng, lỗi thì dùng cache.
-const CACHE = 'tonkho-lemay-v3';
+const CACHE = 'tonkho-lemay-v4';
 const SHELL = [
   './', 'index.html', 'styles.css', 'app.js', 'config.js', 'onedrive.js', 'logo-data.js', 'manifest.json',
   'vendor/xlsx.full.min.js', 'vendor/msal-browser.min.js',
@@ -21,8 +21,9 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  // no-cache: luôn hỏi lại máy chủ để nhận bản app mới ngay khi có cập nhật
   e.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' })
       .then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(req, copy));
