@@ -155,54 +155,74 @@ function applyData(lots, fileName, updatedAt, meta = { source: 'upload' }) {
   render();
 }
 
-/* ================= Đồng bộ OneDrive ================= */
+/* ================= Đồng bộ dữ liệu chung ================= */
 
 const sync = { state: 'off', error: '', lastCheck: 0, running: false };
 
-async function syncOneDrive(manual = false) {
-  if (!OneDrive.account || sync.running) return;
+async function syncRemote(manual = false) {
+  if (!Nguon.account || sync.running) return;
   sync.running = true; sync.state = 'syncing'; sync.error = ''; renderHeader();
   try {
-    const f = await OneDrive.latestFile();
-    if (!f) throw Object.assign(new Error('Thư mục OneDrive chưa có file Excel nào.'), { friendly: true });
-    const same = data?.source === 'onedrive' && data.fileId === f.id && data.fileModified === f.lastModifiedDateTime;
+    const f = await Nguon.latestFile();
+    const same = data?.source === 'web' && data.fileId === f.id && data.fileModified === f.lastModifiedDateTime;
     if (!same) {
-      const lots = parseWorkbook(await OneDrive.download(f));
+      const lots = parseWorkbook(await Nguon.download(f));
       applyData(lots, f.name, timeFromName(f.name, Date.parse(f.lastModifiedDateTime)),
-        { source: 'onedrive', fileId: f.id, fileModified: f.lastModifiedDateTime });
+        { source: 'web', fileId: f.id, fileModified: f.lastModifiedDateTime });
     } else if (manual) {
-      toast('Đang dùng file mới nhất trên OneDrive');
+      toast('Đang dùng dữ liệu mới nhất');
     }
     sync.state = 'ok';
   } catch (err) {
     console.error(err);
     sync.state = 'error';
-    sync.error = err.friendly ? err.message
-      : err.status === 404 ? 'Không tìm thấy thư mục dữ liệu trên OneDrive. Kiểm tra lại cấu hình thư mục.'
-      : err.status === 401 || err.status === 403 ? 'Tài khoản này chưa có quyền đọc thư mục dữ liệu trên OneDrive.'
-      : !navigator.onLine || err instanceof TypeError ? 'Mất kết nối mạng, đang dùng dữ liệu đã lưu trên máy.'
-      : 'Không lấy được file từ OneDrive (' + err.message + '). Đang dùng dữ liệu đã lưu.';
+    if (err.code === 'revoked') {
+      Nguon.logout();
+      sync.error = 'Tài khoản đã bị xóa hoặc đổi mật khẩu. Hãy đăng nhập lại.';
+    } else {
+      sync.error = err.status === 404 ? 'Chưa có dữ liệu tồn kho trên web. Kiểm tra laptop đồng bộ đã bật chưa.'
+        : !navigator.onLine || err instanceof TypeError ? 'Mất kết nối mạng, đang dùng dữ liệu đã lưu trên máy.'
+        : 'Không lấy được dữ liệu (' + err.message + '). Đang dùng dữ liệu đã lưu.';
+    }
   } finally {
     sync.running = false; sync.lastCheck = Date.now(); render();
   }
 }
 
-async function startOneDrive() {
-  if (!OneDrive.enabled()) return;
+async function startRemote() {
   sync.state = 'need-login';
-  try {
-    if (await OneDrive.init()) await syncOneDrive();
-  } catch (err) {
-    console.error(err);
-    sync.state = 'error'; sync.error = 'Không đăng nhập được Microsoft: ' + (err.errorMessage || err.message);
-  }
+  if (await Nguon.init()) await syncRemote();
   render();
-  setInterval(() => { if (document.visibilityState === 'visible') syncOneDrive(); }, OneDrive.autoSyncMinutes * 60e3);
-  // Mở lại app (từ nền) thì kiểm tra file mới nếu đã quá 1 phút
+  setInterval(() => { if (document.visibilityState === 'visible') syncRemote(); }, Nguon.autoSyncMinutes * 60e3);
+  // Mở lại app (từ nền) thì kiểm tra dữ liệu mới nếu đã quá 1 phút
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - sync.lastCheck > 60e3) syncOneDrive();
+    if (document.visibilityState === 'visible' && Date.now() - sync.lastCheck > 60e3) syncRemote();
   });
 }
+
+function openLogin() {
+  $('#loginError').textContent = '';
+  $('#loginModal').hidden = false;
+  setTimeout(() => $('#loginUser').focus(), 50);
+}
+
+$('#loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('#loginForm button[type=submit]');
+  btn.disabled = true; $('#loginError').textContent = '';
+  try {
+    await Nguon.login($('#loginUser').value, $('#loginPass').value);
+    $('#loginPass').value = '';
+    $('#loginModal').hidden = true;
+    await syncRemote(true);
+  } catch (err) {
+    $('#loginError').textContent = err.code === 'badlogin' ? 'Sai tên đăng nhập hoặc mật khẩu.'
+      : err.status === 404 ? 'Chưa có tài khoản nào được tạo trên laptop.'
+      : 'Không đăng nhập được: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 /* ================= Tính tồn ================= */
 
@@ -286,8 +306,8 @@ function render() {
   const banner = $('#banner');
   banner.classList.toggle('error', sync.state === 'error');
   if (sync.state === 'error') banner.textContent = sync.error;
-  else if (stale) banner.textContent = data.source === 'onedrive'
-    ? `File mới nhất trên OneDrive là của ngày ${fmtDate(toISO(new Date(data.updatedAt)))}. Nhắc nhân viên cập nhật file CRM hôm nay.`
+  else if (stale) banner.textContent = data.source === 'web'
+    ? `Dữ liệu mới nhất là của ngày ${fmtDate(toISO(new Date(data.updatedAt)))}. Kiểm tra file CRM hôm nay đã bỏ vào OneDrive và laptop đồng bộ đang bật.`
     : `Dữ liệu đang là của ngày ${fmtDate(toISO(new Date(data.updatedAt)))}. Hãy tải file CRM mới nhất trước khi gửi khách.`;
   banner.hidden = !(sync.state === 'error' || stale);
 
@@ -295,15 +315,16 @@ function render() {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === ui.tab));
 
   const main = $('#main');
-  if (!data && ui.tab !== 'settings') {
-    const needLogin = OneDrive.enabled() && !OneDrive.account;
+  // Dữ liệu chung chỉ hiện khi đã đăng nhập; file tự tải lên thì vẫn xem được
+  const needLogin = !Nguon.account && data?.source !== 'upload';
+  if ((!data || needLogin) && ui.tab !== 'settings') {
     main.innerHTML = `<div class="empty">
       <img src="icons/logo-wide.png" alt="Lê Mây Co., Ltd">
-      ${sync.state === 'syncing' ? '<h2>Đang lấy file mới nhất từ OneDrive...</h2>'
+      ${sync.state === 'syncing' ? '<h2>Đang lấy dữ liệu mới nhất...</h2>'
         : needLogin ? `<h2>Đăng nhập để xem tồn kho</h2>
-          <p>Đăng nhập bằng tài khoản Microsoft công ty, app sẽ tự lấy file CRM mới nhất<br>trong thư mục "Dữ liệu tồn kho trên CRM" trên OneDrive.</p>
-          <button class="btn btn-primary" data-action="login">Đăng nhập Microsoft</button>
-          <p class="hint">hoặc <label for="fileInput" style="color:var(--pink);cursor:pointer;text-decoration:underline">chọn file thủ công</label></p>`
+          <p>Dùng tên đăng nhập và mật khẩu được cấp cho bạn.</p>
+          <button class="btn btn-primary" data-action="login">Đăng nhập</button>
+          <p class="hint">hoặc <label for="fileInput" style="color:var(--pink);cursor:pointer;text-decoration:underline">chọn file CRM thủ công</label></p>`
         : `<h2>Chưa có dữ liệu tồn kho</h2>
           <p>Bấm <b>Tải file CRM</b> và chọn file Excel xuất từ CRM<br>(thư mục "Dữ liệu tồn kho trên CRM").</p>
           <label for="fileInput" class="btn btn-primary">Chọn file CRM</label>`}
@@ -317,17 +338,15 @@ function render() {
 }
 
 function renderHeader() {
-  const od = OneDrive.enabled();
-  const src = data ? (data.source === 'onedrive' ? 'OneDrive' : 'File tải lên') : '';
-  $('#dataInfo').textContent = sync.state === 'syncing' ? 'Đang kiểm tra file mới trên OneDrive...'
-    : data ? `${src} · dữ liệu CRM lúc ${fmtDateTime(data.updatedAt)}`
-    : od ? 'Đăng nhập để lấy dữ liệu từ OneDrive' : 'Chưa có dữ liệu - bấm "Tải file CRM"';
-  $('#headerActions').innerHTML = !od
-    ? '<label for="fileInput" class="btn btn-primary">Tải file CRM</label>'
-    : !OneDrive.account
-      ? '<button class="btn btn-primary" data-action="login">Đăng nhập</button>'
-      : `<button class="btn btn-primary" data-action="sync" ${sync.state === 'syncing' ? 'disabled' : ''}>
-          <span class="${sync.state === 'syncing' ? 'spin' : ''}">⟳</span> Đồng bộ</button>`;
+  const visible = data && (Nguon.account || data.source === 'upload');
+  const src = data?.source === 'web' ? Nguon.account?.username || 'Dữ liệu chung' : 'File tải lên';
+  $('#dataInfo').textContent = sync.state === 'syncing' ? 'Đang kiểm tra dữ liệu mới...'
+    : visible ? `${src} · dữ liệu CRM lúc ${fmtDateTime(data.updatedAt)}`
+    : 'Chưa đăng nhập';
+  $('#headerActions').innerHTML = !Nguon.account
+    ? '<button class="btn btn-primary" data-action="login">Đăng nhập</button>'
+    : `<button class="btn btn-primary" data-action="sync" ${sync.state === 'syncing' ? 'disabled' : ''}>
+        <span class="${sync.state === 'syncing' ? 'spin' : ''}">⟳</span> Đồng bộ</button>`;
 }
 
 function brandChips(products, current, attr, withAll = false) {
@@ -456,13 +475,13 @@ function renderSettings(main, c, hidden) {
   html += `</div></div>
     <div class="panel">
       <h3>Nguồn dữ liệu</h3>
-      ${OneDrive.enabled()
-        ? `<p class="hint">OneDrive: ${OneDrive.account ? `đã đăng nhập <b>${esc(OneDrive.account.username)}</b>. App tự kiểm tra file mới khi mở và mỗi ${OneDrive.autoSyncMinutes} phút.` : 'chưa đăng nhập.'}</p>`
-        : '<p class="hint">Chưa kết nối OneDrive (chưa điền cấu hình trong config.js), đang dùng chế độ tải file thủ công.</p>'}
-      <p class="hint">${data ? `File đang dùng: <b>${esc(data.fileName)}</b> (${data.source === 'onedrive' ? 'từ OneDrive' : 'tải lên thủ công'}) · lấy về lúc ${fmtDateTime(data.uploadedAt)}` : 'Chưa có dữ liệu.'}</p>
+      <p class="hint">${Nguon.account
+        ? `Đã đăng nhập <b>${esc(Nguon.account.username)}</b>. App tự kiểm tra dữ liệu mới khi mở và mỗi ${Nguon.autoSyncMinutes} phút.`
+        : 'Chưa đăng nhập.'}</p>
+      <p class="hint">${data && (Nguon.account || data.source === 'upload') ? `File đang dùng: <b>${esc(data.fileName)}</b> (${data.source === 'web' ? 'dữ liệu chung' : 'tải lên thủ công'}) · lấy về lúc ${fmtDateTime(data.uploadedAt)}` : 'Chưa có dữ liệu.'}</p>
       <div class="toolbar">
-        ${OneDrive.enabled() && OneDrive.account ? '<button class="btn btn-sm" data-action="sync">Đồng bộ ngay</button><button class="btn btn-sm" data-action="logout">Đăng xuất</button>' : ''}
-        ${OneDrive.enabled() && !OneDrive.account ? '<button class="btn btn-sm btn-primary" data-action="login">Đăng nhập Microsoft</button>' : ''}
+        ${Nguon.account ? '<button class="btn btn-sm" data-action="sync">Đồng bộ ngay</button><button class="btn btn-sm" data-action="logout">Đăng xuất</button>'
+          : '<button class="btn btn-sm btn-primary" data-action="login">Đăng nhập</button>'}
         <label for="fileInput" class="btn btn-sm">Tải file thủ công</label>
       </div>
       <p class="hint">Cài đặt (Luôn hiện, Ngưng bán, nhóm đã lưu) lưu riêng trên từng điện thoại/máy tính.</p>
@@ -494,18 +513,23 @@ document.addEventListener('click', e => {
     if (!confirm(`Xóa nhóm "${ui.activeSet}"?`)) return;
     delete settings.sets[ui.activeSet]; ui.activeSet = ''; saveSettings(); render();
   } else if (a === 'login') {
-    OneDrive.login().catch(err => toast('Không mở được trang đăng nhập: ' + err.message));
+    openLogin();
   } else if (a === 'logout') {
-    if (confirm('Đăng xuất tài khoản Microsoft trên máy này?')) OneDrive.logout();
+    if (!confirm('Đăng xuất khỏi máy này? Dữ liệu tồn kho đã tải về cũng sẽ bị xóa khỏi máy.')) return;
+    Nguon.logout();
+    if (data?.source === 'web') { data = null; localStorage.removeItem(LS_DATA); }
+    sync.state = 'need-login'; render();
+  } else if (a === 'close-login') {
+    $('#loginModal').hidden = true;
   } else if (a === 'sync') {
-    syncOneDrive(true);
+    syncRemote(true);
   } else if (a === 'make-image') {
     openImages();
   } else if (a === 'close-modal') {
     $('#modal').hidden = true;
   } else if (a === 'reset') {
     if (!confirm('Xóa dữ liệu tồn kho, nhóm đã lưu và cài đặt trên máy này?')) return;
-    localStorage.removeItem(LS_DATA); localStorage.removeItem(LS_SET);
+    localStorage.removeItem(LS_DATA); localStorage.removeItem(LS_SET); Nguon.logout();
     data = null; settings = Object.assign({}, DEFAULT_SETTINGS, { known: {}, sets: {} }); selected = new Set(); ui.tab = 'stock';
     render();
   }
@@ -775,4 +799,4 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('sw.js').catch(() => { });
 }
 render();
-startOneDrive();
+startRemote();

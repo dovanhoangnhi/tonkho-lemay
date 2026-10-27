@@ -53,13 +53,31 @@
     </div>
   </div>
 
+  <div id="loginModal" class="modal" hidden>
+    <form id="loginForm" class="modal-box login-box" autocomplete="on">
+      <div class="modal-head">
+        <strong>Đăng nhập</strong>
+        <button type="button" class="btn btn-ghost" data-action="close-login" aria-label="Đóng">✕</button>
+      </div>
+      <label class="field">
+        <span>Tên đăng nhập</span>
+        <input id="loginUser" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </label>
+      <label class="field">
+        <span>Mật khẩu</span>
+        <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="loginError" class="login-error"></p>
+      <button type="submit" class="btn btn-primary">Đăng nhập</button>
+    </form>
+  </div>
+
   <div id="dropzone" class="dropzone" hidden>Thả file CRM vào đây</div>
   <div id="toast" class="toast" hidden></div>
 
   <script src="vendor/xlsx.full.min.js"></script>
-  <script src="vendor/msal-browser.min.js"></script>
   <script src="config.js"></script>
-  <script src="onedrive.js"></script>
+  <script src="nguon-du-lieu.js"></script>
   <script src="logo-data.js"></script>
   <script src="app.js"></script>
 </body>
