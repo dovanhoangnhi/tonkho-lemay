@@ -274,9 +274,14 @@ function compute() {
       clearLots.push({ ...l, brand, ratio, expired });
     } else {
       p.qty += l.ton;
-      if (l.hsd && (!p.hsd || l.hsd < p.hsd)) p.hsd = l.hsd;
+      // HSD hiển thị: lô gần nhất còn hàng để bán (tồn > đã đặt chưa giao); lô đã đặt hết chỉ dùng khi không còn lô nào khác
+      if (l.hsd) {
+        if (l.ton > (l.dat || 0)) { if (!p.hsd || l.hsd < p.hsd) p.hsd = l.hsd; }
+        else if (!p.hsdReserved || l.hsd < p.hsdReserved) p.hsdReserved = l.hsd;
+      }
     }
   }
+  for (const p of prods.values()) if (!p.hsd && p.hsdReserved) p.hsd = p.hsdReserved;
   const brandRank = b => (isKey(b) ? KEY_BRANDS.indexOf(b) : 100);
   const products = [...prods.values()].sort((a, b) =>
     brandRank(a.brand) - brandRank(b.brand) || a.brand.localeCompare(b.brand, 'vi') || a.ma.localeCompare(b.ma));
